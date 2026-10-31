@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Сара учи историју</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<meta name="theme-color" content="#1c2340">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Историја">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&family=PT+Sans:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
@@ -39,6 +46,12 @@ header{position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:1px
 .bar h1 small{display:block;font-family:var(--body);font-weight:400;font-size:.78rem;color:var(--muted)}
 button{font:inherit;color:inherit;cursor:pointer}
 button:focus-visible,a:focus-visible{outline:3px solid var(--pen);outline-offset:2px}
+#installBtn{background:var(--pen);color:var(--pen-ink);border-color:var(--pen)}
+.sheet{position:fixed;inset:0;z-index:20;background:rgba(10,12,20,.55);display:flex;align-items:flex-end;justify-content:center}
+.sheet[hidden]{display:none}
+.sheet .panel{background:var(--card);color:var(--ink);width:100%;max-width:680px;border-radius:18px 18px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));max-height:90%;overflow:auto}
+.sheet ol{padding-left:1.3em;margin:8px 0 16px}.sheet li{margin:8px 0}
+.kbd{display:inline-block;border:1px solid var(--line);border-radius:6px;padding:0 6px;background:var(--paper);font-weight:700}
 .icon-btn{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:.85rem;font-weight:700;min-height:38px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:12px;padding:12px 18px;font-weight:700;border:1px solid var(--line);background:var(--card);min-height:48px}
 .btn.primary{background:var(--pen);color:var(--pen-ink);border-color:var(--pen)}
@@ -97,9 +110,11 @@ dl.terms dd{margin:0;color:var(--muted)}
 <body>
 <header><div class="bar">
   <h1 id="apptitle">Сара учи историју<small>Свијет од краја XV до краја XVII вијека</small></h1>
+  <button class="icon-btn" id="installBtn" hidden>Инсталирај</button>
   <button class="icon-btn" id="scriptBtn" aria-label="Промијени писмо">LAT</button>
 </div></header>
 <main class="wrap" id="app"></main>
+<div class="sheet" id="sheet" hidden><div class="panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" id="sheetPanel"></div></div>
 
 <script>
 const LESSONS = [
@@ -368,11 +383,11 @@ function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.flo
 function chips(k){ return '<div class="chips">'+k.split(' · ').map(x=>'<span class="chip">'+x+'</span>').join('')+'</div>'; }
 
 function render(){
-  if (timerId){ clearInterval(timerId); timerId=null; }
   document.documentElement.lang = S.script==='lat' ? 'sr-Latn' : 'sr-Cyrl';
   document.getElementById('scriptBtn').textContent = S.script==='lat' ? 'ЋИР' : 'LAT';
   document.getElementById('apptitle').innerHTML = T('Сара учи историју<small>Свијет од краја XV до краја XVII вијека</small>');
   document.title = T('Сара учи историју');
+  if (typeof updateInstallBtn==='function') updateInstallBtn();
   const f = {home, lesson, tell, exam, dates}[view.name];
   app.innerHTML = '<div class="fade">'+T(f())+'</div>';
   bind();
@@ -465,7 +480,7 @@ function quizHtml(){
   let h='<div class="card"><span class="progress-txt">'+(n+1)+' / '+z.length+' · тачно '+view.score+'</span><p class="big">'+it.q+'</p><p class="hint" style="margin:0">Које године?</p>';
   it.opts.forEach(o=>{
     let c='opt'; if (view.pick!==null){ if(o===it.a)c+=' right'; else if(o===view.pick)c+=' wrong'; }
-    h+='<button class="'+c+'" data-act="qzpick" data-o="'+it.opts.indexOf(o)+'" '+(view.pick!==null?'disabled':'')+'>'+o+'</button>';
+    h+='<button class="'+c+'" data-act="qzpick" data-o="'+o+'" '+(view.pick!==null?'disabled':'')+'>'+o+'</button>';
   });
   if (view.pick!==null) h+='<button class="btn primary block" data-act="qznext">Даље →</button>';
   return h+'</div>';
@@ -564,7 +579,7 @@ function act(a,d){
     case 'qshow': view.show=true; render(); break;
     case 'qrate': S.q[l.id+'-q'+(view.qi||0)]=+d.v; save(); if((view.qi||0)<l.qs.length-1){view.qi=(view.qi||0)+1;} view.show=false; render(); break;
     case 'qmove': view.qi=Math.max(0,Math.min(l.qs.length-1,(view.qi||0)+(+d.d))); view.show=false; render(); break;
-    case 'qzpick': { const o=view.quiz[view.qn].opts[+d.o]; view.pick=o; if(o===view.quiz[view.qn].a) view.score++; } render(); break;
+    case 'qzpick': view.pick=d.o; if(d.o===view.quiz[view.qn].a) view.score++; render(); break;
     case 'qznext': view.qn++; view.pick=null; render(); break;
     case 'qzagain': view.quiz=null; render(); break;
     case 'reset':
@@ -573,6 +588,56 @@ function act(a,d){
       break;
   }
 }
+/* ---------- Инсталација ---------- */
+let deferredPrompt = null;
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const installBtn = document.getElementById('installBtn');
+const sheet = document.getElementById('sheet');
+function updateInstallBtn(){
+  installBtn.hidden = isStandalone() || location.protocol === 'file:';
+  installBtn.textContent = T('Инсталирај');
+}
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; updateInstallBtn(); });
+window.addEventListener('appinstalled', () => { deferredPrompt = null; updateInstallBtn(); showSheet('done'); });
+function showSheet(kind){
+  let h;
+  if (kind === 'ios'){
+    const inSafari = /safari/i.test(navigator.userAgent) && !/crios|fxios|edgios|instagram|fban|fbav|whatsapp/i.test(navigator.userAgent);
+    h = '<h3 id="sheetTitle">Додај на почетни екран</h3>' +
+      (inSafari ? '' : '<p class="note card small" style="margin:8px 0">На iPhone-у ово ради само у Safari-ју. Отвори овај линк у Safari-ју, па настави.</p>') +
+      '<ol><li>Додирни дугме <span class="kbd">Подијели</span> (квадрат са стрелицом нагоре), доле на екрану.</li>' +
+      '<li>Скролуј и изабери <span class="kbd">Додај на почетни екран</span> (Add to Home Screen).</li>' +
+      '<li>Додирни <span class="kbd">Додај</span> горе десно.</li></ol>' +
+      '<p class="small muted">Иконица „И“ се појави међу апликацијама и отвара се преко цијелог екрана.</p>';
+  } else if (kind === 'done'){
+    h = '<h3 id="sheetTitle">Инсталирано</h3><p>Апликација је сад на почетном екрану. Ради и без интернета.</p>';
+  } else {
+    h = '<h3 id="sheetTitle">Инсталирај апликацију</h3><ol>' +
+      '<li>Отвори мени прегледача <span class="kbd">⋮</span> горе десно.</li>' +
+      '<li>Изабери <span class="kbd">Инсталирај апликацију</span> или <span class="kbd">Додај на почетни екран</span>.</li>' +
+      '<li>Потврди са <span class="kbd">Инсталирај</span>.</li></ol>' +
+      '<p class="small muted">Ако тога нема у менију, отвори линк у Chrome-у.</p>';
+  }
+  h += '<button class="btn primary block" id="sheetClose">У реду</button>';
+  document.getElementById('sheetPanel').innerHTML = T(h);
+  sheet.hidden = false;
+  document.getElementById('sheetClose').focus();
+  document.getElementById('sheetClose').onclick = () => { sheet.hidden = true; };
+}
+sheet.addEventListener('click', e => { if (e.target === sheet) sheet.hidden = true; });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') sheet.hidden = true; });
+installBtn.addEventListener('click', async () => {
+  if (deferredPrompt){
+    deferredPrompt.prompt();
+    try { await deferredPrompt.userChoice; } catch(e) {}
+    deferredPrompt = null; updateInstallBtn();
+  } else showSheet(isIOS() ? 'ios' : 'other');
+});
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+
 document.getElementById('scriptBtn').addEventListener('click',()=>{ S.script = S.script==='lat'?'cyr':'lat'; save(); const t0=view.t0; render(); if(t0) view.t0=t0; });
 render();
 </script>
